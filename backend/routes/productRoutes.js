@@ -5,28 +5,20 @@ const {
     addProduct,
     updateProduct,
     deleteProduct,
-    getProductsByCategoryId
+    getProductsByCategoryId,
+    getProductsByCategoryName,
+    getProductsByBrandId
 } = require('../controllers/productController');
 const { protect, admin } = require('../middleware/authMiddleware');
-const multer = require('multer');
-const path = require('path');
+const cloudinaryFileUploader = require('../middleware/FileUploader');
 
 const router = express.Router();
 
-// Cấu hình multer để lưu ảnh vào thư mục `uploads/`
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, 'uploads/'); // Lưu ảnh vào thư mục `uploads/`
-    },
-    filename: (req, file, cb) => {
-        cb(null, Date.now() + path.extname(file.originalname)); // Đặt tên file là thời gian hiện tại + phần mở rộng của file
-    }
-});
-
-const upload = multer({ storage: storage });
-
 // Lấy tất cả sản phẩm
 router.get('/', getAllProducts);
+
+// Tìm kiếm sản phẩm theo tên danh mục
+router.get('/category/search', getProductsByCategoryName);
 
 // Lấy chi tiết sản phẩm theo ID
 router.get('/:id', getProductById);
@@ -34,11 +26,14 @@ router.get('/:id', getProductById);
 // Lấy sản phẩm theo ID Category
 router.get('/category/:categoryId', getProductsByCategoryId);
 
-// Thêm sản phẩm (chỉ admin) và hỗ trợ upload ảnh
-router.post('/add', protect, admin, upload.single('image'), addProduct);
+// Lấy sản phẩm theo ID Brand
+router.get('/brands/:brandId', getProductsByBrandId);
 
-// Cập nhật sản phẩm (chỉ admin)
-router.put('/:id', protect, admin, upload.single('image'), updateProduct);
+// Thêm sản phẩm (chỉ admin) và hỗ trợ upload ảnh
+router.post('/add', protect, admin, cloudinaryFileUploader.single('image'), addProduct);
+
+// Cập nhật sản phẩm (chỉ admin) và hỗ trợ upload ảnh
+router.put('/:id', protect, admin, cloudinaryFileUploader.single('image'), updateProduct);
 
 // Xóa sản phẩm (chỉ admin)
 router.delete('/:id', protect, admin, deleteProduct);

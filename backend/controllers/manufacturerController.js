@@ -3,12 +3,27 @@ const Manufacturer = require("../../backend/model/manufacturer");
 // Lấy tất cả nhà sản xuất
 const getAllManufacturers = async (req, res) => {
     try {
-        const manufacturers = await Manufacturer.find({});
-        res.status(200).json({ data: manufacturers });
+        const page = parseInt(req.query.page) || 1; // Default to page 1 if not provided
+        const limit = parseInt(req.query.limit) || 6; // Default to 6 items per page if not provided
+        const skip = (page - 1) * limit; // Calculate the number of records to skip based on the page
+
+        const manufacturers = await Manufacturer.find()
+            .skip(skip)
+            .limit(limit);
+        const totalManufacturers = await Manufacturer.countDocuments(); // Get the total number of manufacturers
+
+        const totalPages = Math.ceil(totalManufacturers / limit); // Calculate total pages
+
+        res.status(200).json({
+            data: manufacturers,
+            totalPages: totalPages,
+            currentPage: page
+        });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
 };
+
 
 // Lấy nhà sản xuất theo ID
 const getManufacturerById = async (req, res) => {
@@ -24,9 +39,10 @@ const getManufacturerById = async (req, res) => {
 };
 
 // Thêm nhà sản xuất mới (có hỗ trợ upload hình ảnh nếu có)
+// Thêm nhà sản xuất mới
 const addManufacturer = async (req, res) => {
     const { name, country, contactInfo } = req.body;
-    const imageUrl = req.file ? `/uploads/${req.file.filename}` : null; // Lưu URL ảnh nếu có
+    const imageUrl = req.file ? req.file.path : null; // Sử dụng URL đầy đủ từ Cloudinary
 
     if (!name) {
         return res.status(400).json({ message: 'Name is required' });
@@ -50,7 +66,7 @@ const addManufacturer = async (req, res) => {
 // Cập nhật nhà sản xuất theo ID
 const updateManufacturer = async (req, res) => {
     const { name, country, contactInfo } = req.body;
-    const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
+    const imageUrl = req.file ? req.file.path : null; // Sử dụng URL đầy đủ từ Cloudinary
 
     try {
         const manufacturer = await Manufacturer.findById(req.params.id);
@@ -72,6 +88,9 @@ const updateManufacturer = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+
+
 
 // Xóa nhà sản xuất theo ID
 // Xóa nhà sản xuất theo ID

@@ -6,12 +6,25 @@ const mongoose = require('mongoose');
 
 // Lấy tất cả sản phẩm
 const getAllProducts = async (req, res) => {
+    const page = parseInt(req.query.page) || 1; // Trang hiện tại (mặc định là 1)
+    const limit = parseInt(req.query.limit) || 1; // Số sản phẩm mỗi trang (mặc định là 6)
     try {
+        const skip = (page - 1) * limit;
         const products = await Product.find({})
+            .skip(skip)
+            .limit(limit)
             .populate('category', 'name')  // Liên kết với Category và chỉ lấy name
             .populate('discount', 'name discountPercent')  // Liên kết với Discount
             .populate('manufacturer', 'name');  // Liên kết với Manufacturer
-        res.status(200).json(products);
+        const totalProducts = await Product.countDocuments()
+        const totalPages = Math.ceil(totalProducts / limit)
+        res.status(200).json({
+            products: products,
+            success: true,
+            currentPage: page,
+            totalPages: totalPages
+        });
+
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -35,28 +48,61 @@ const getProductById = async (req, res) => {
 
 
 const getProductsByCategoryId = async (req, res) => {
+    const { categoryId } = req.params;
+    const page = parseInt(req.query.page) || 1; // Trang hiện tại (mặc định là 1)
+    const limit = parseInt(req.query.limit) || 1; // Số sản phẩm mỗi trang (mặc định là 6)
+
     try {
-        const categoryId = req.params.categoryId;
+        const skip = (page - 1) * limit;
 
+        // Truy vấn để lấy dữ liệu với phân trang
+        const products = await Product.find({ category: categoryId })
+            .skip(skip)
+            .limit(limit)
+            .select('description images price name category');
 
-        // Kiểm tra tính hợp lệ của categoryId
-        if (!mongoose.Types.ObjectId.isValid(categoryId)) {
-            return res.status(400).json({ success: false, message: 'Invalid category ID' });
-        }
+        const totalProducts = await Product.countDocuments({ category: categoryId });
+        const totalPages = Math.ceil(totalProducts / limit);
 
-        // Tìm sản phẩm với categoryId
-        const products = await Product.find({ category: categoryId }) // Không cần dùng new ObjectId ở đây nếu đã kiểm tra isValid
-            .select('description images price name') // Thêm name để hiển thị tên sản phẩm
-            .populate('category', 'name');
-
-        // Trả về danh sách sản phẩm
-        res.status(200).json({ success: true, data: products });
+        res.status(200).json({
+            success: true,
+            data: products,
+            currentPage: page,
+            totalPages: totalPages
+        });
     } catch (error) {
         console.error('Error fetching products:', error);
         res.status(500).json({ success: false, message: 'Internal server error' });
     }
 };
+const getProductsByBrandId = async (req, res) => {
+    try {
+        const brandId = req.params.brandId;
+        const page = parseInt(req.query.page) || 1; // Trang hiện tại (mặc định là 1)
+        const limit = parseInt(req.query.limit) || 6; // Số sản phẩm mỗi trang (mặc định là 6)
+        const skip = (page - 1) * limit;
 
+        // Lấy sản phẩm theo `brandId` với phân trang
+        const products = await Product.find({ manufacturer: brandId })
+            .skip(skip)
+            .limit(limit)
+            .select('description images price name category');
+
+        // Tổng số sản phẩm để tính tổng số trang
+        const totalProducts = await Product.countDocuments({ manufacturer: brandId });
+        const totalPages = Math.ceil(totalProducts / limit);
+
+        res.status(200).json({
+            success: true,
+            data: products,
+            currentPage: page,
+            totalPages: totalPages,
+        });
+    } catch (error) {
+        console.error('Error fetching products:', error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+};
 
 // Thêm sản phẩm mới
 const addProduct = async (req, res) => {
@@ -66,8 +112,8 @@ const addProduct = async (req, res) => {
     } = req.body;
 
     // Kiểm tra bắt buộc
-    if (!name || !category || !price || !manufacturer) {
-        return res.status(400).json({ message: 'Name, category, price, and manufacturer are required' });
+    if (!name || !category || !price) {
+        return res.status(400).json({ message: 'Name, category, and price are required' });
     }
 
     try {
@@ -85,7 +131,7 @@ const addProduct = async (req, res) => {
             }
         }
 
-        // Tạo sản phẩm mới và lưu đường dẫn ảnh (nếu có)
+        // Tạo sản phẩm mới và lưu đường dẫn ảnh từ Cloudinary (nếu có)
         const product = new Product({
             name,
             category,
@@ -95,9 +141,9 @@ const addProduct = async (req, res) => {
             stock: stock || 0,
             ingredients,
             usage,
-            stock,
+            origin,
             manufacturer,
-            images: req.file ? `/uploads/${req.file.filename}` : '', // Lưu đường dẫn ảnh vào MongoDB
+            images: req.file ? req.file.path : '', // Sử dụng URL từ Cloudinary đã lưu trong `req.file.path`
             rating: rating || 0,
             isFeatured: isFeatured || false,
         });
@@ -108,6 +154,8 @@ const addProduct = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+
 
 // Cập nhật sản phẩm theo ID
 const updateProduct = async (req, res) => {
@@ -137,7 +185,7 @@ const updateProduct = async (req, res) => {
 
         // Cập nhật ảnh nếu có ảnh mới trong request
         if (req.file) {
-            product.images = `/uploads/${req.file.filename}`;
+            product.images = req.file.path; // Sử dụng URL đầy đủ từ Cloudinary
         }
 
         const updatedProduct = await product.save();
@@ -146,6 +194,9 @@ const updateProduct = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+
+
 
 // Xóa sản phẩm theo ID
 const deleteProduct = async (req, res) => {
@@ -161,6 +212,53 @@ const deleteProduct = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+// Tìm sản phẩm theo tên category
+// Tìm sản phẩm theo tên category
+const getProductsByCategoryName = async (req, res) => {
+    try {
+        const searchTerm = req.query.name;
+
+
+        // Kiểm tra nếu từ khóa tìm kiếm không hợp lệ
+        if (!searchTerm || searchTerm.trim() === '') {
+            return res.status(400).json({ success: false, message: 'Search term is required' });
+        }
+
+        // Tìm category theo tên
+        const category = await Category.findOne({ name: { $regex: searchTerm, $options: 'i' } });
+
+        let products = [];
+        if (category) {
+            // Nếu tìm thấy category, tìm các sản phẩm trong category đó
+            products = await Product.find({ category: category._id })
+                .select('description images price name')
+                .populate('category', 'name');
+        }
+
+        // Tìm thêm sản phẩm theo tên sản phẩm
+        const productsByName = await Product.find({ name: { $regex: searchTerm, $options: 'i' } })
+            .select('description images price name')
+            .populate('category', 'name');
+
+        // Kết hợp kết quả (loại bỏ trùng lặp nếu cần)
+        products = [...products, ...productsByName];
+
+        // Loại bỏ các sản phẩm trùng lặp (nếu cần)
+        products = products.filter((product, index, self) =>
+            index === self.findIndex((p) => p._id.toString() === product._id.toString())
+        );
+
+        if (products.length === 0) {
+            return res.status(200).json({ success: true, message: 'No products found for this search term', data: [] });
+        }
+
+        res.status(200).json({ success: true, data: products });
+    } catch (error) {
+        console.error('Error fetching products by category or product name:', error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+};
+
 
 
 module.exports = {
@@ -169,5 +267,7 @@ module.exports = {
     addProduct,
     updateProduct,
     deleteProduct,
-    getProductsByCategoryId
+    getProductsByCategoryId,
+    getProductsByCategoryName,
+    getProductsByBrandId
 };

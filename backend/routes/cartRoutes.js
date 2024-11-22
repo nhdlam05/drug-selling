@@ -4,7 +4,8 @@ const {
     addToCart,
     updateCart,
     removeFromCart,
-    clearCart
+    clearCart,
+    countAddToCartProduct
 } = require('../controllers/cartController');
 const { protect } = require('../middleware/authMiddleware');
 
@@ -15,6 +16,9 @@ router.get('/', protect, getUserCart);
 
 // Thêm sản phẩm vào giỏ hàng
 router.post('/add', protect, addToCart);
+
+//dem so luong san pham
+router.get('/count', protect, countAddToCartProduct)
 
 // Cập nhật số lượng sản phẩm trong giỏ hàng
 router.put('/update', protect, updateCart);

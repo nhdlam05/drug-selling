@@ -173,11 +173,48 @@ const clearCart = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+const countAddToCartProduct = async (req, res) => {
+    try {
+        const userId = req.user._id;
 
+        // Tìm giỏ hàng của user
+        const cart = await Cart.findOne({ userId: userId });
+
+        if (!cart) {
+            return res.json({
+                data: {
+                    count: 0
+                },
+                message: "No products found in cart",
+                error: false,
+                success: true
+            });
+        }
+
+        // Đếm số lượng sản phẩm khác nhau
+        const uniqueProductCount = cart.products.length;
+
+        res.json({
+            data: {
+                count: uniqueProductCount
+            },
+            message: "ok",
+            error: false,
+            success: true
+        });
+    } catch (error) {
+        res.json({
+            message: error.message || error,
+            error: true,
+            success: false,
+        });
+    }
+}
 module.exports = {
     getUserCart,
     addToCart,
     updateCart,
     removeFromCart,
     clearCart,
+    countAddToCartProduct
 };

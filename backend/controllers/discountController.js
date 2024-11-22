@@ -3,12 +3,27 @@ const Discount = require('../../backend/model/discount');
 // Lấy tất cả giảm giá
 const getAllDiscounts = async (req, res) => {
     try {
-        const discounts = await Discount.find({});
-        res.status(200).json({ data: discounts });
+        const page = parseInt(req.query.page) || 1; // Default to page 1 if not provided
+        const limit = parseInt(req.query.limit) || 6; // Default to 6 items per page if not provided
+        const skip = (page - 1) * limit; // Calculate the number of records to skip based on the page
+
+        const discounts = await Discount.find()
+            .skip(skip)
+            .limit(limit);
+        const totalDiscounts = await Discount.countDocuments(); // Get the total number of discounts
+
+        const totalPages = Math.ceil(totalDiscounts / limit); // Calculate total pages
+
+        res.status(200).json({
+            data: discounts,
+            totalPages: totalPages,
+            currentPage: page
+        });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
 };
+
 
 // Lấy chi tiết giảm giá theo ID
 const getDiscountById = async (req, res) => {

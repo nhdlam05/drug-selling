@@ -75,9 +75,23 @@ const changePassword = async (req, res) => {
 
 // Lấy danh sách tất cả người dùng (Admin)
 const getAllUsers = async (req, res) => {
+    const page = parseInt(req.query.page) || 1; // Trang hiện tại (mặc định là 1)
+    const limit = parseInt(req.query.limit) || 6; // Số sản phẩm mỗi trang (mặc định là 6)
+
     try {
-        const users = await User.find({}).select('-password');
-        res.status(200).json({ data: users, success: true });
+        const skip = (page - 1) * limit;
+        const users = await User.find({})
+            .skip(skip)
+            .limit(limit)
+            .select('-password');
+        const totalUsers = await User.countDocuments()
+        const totalPages = Math.ceil(totalUsers / limit)
+        res.status(200).json({
+            data: users,
+            success: true,
+            currentPage: page,
+            totalPages: totalPages
+        });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

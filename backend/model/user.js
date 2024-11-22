@@ -7,7 +7,12 @@ const userSchema = new mongoose.Schema({
     password: { type: String, required: true },
     phoneNumber: { type: String },
     address: { type: String },
-    isAdmin: { type: Boolean, default: false }
+    isAdmin: { type: Boolean, default: false },
+    isVerified: { type: Boolean, default: false },
+    resetPasswordToken: { type: String },
+    resetPasswordExpire: { type: Date },
+    verificationToken: { String },
+    verificationTokenExpire: { Date }
 }, { timestamps: true });
 
 userSchema.pre("save", function (next) {
